@@ -6,21 +6,16 @@
 
 #define MAX_ENEMIES 5
 
-// --- EXTENDED GAME STATES ---
-typedef enum { 
-    STATE_INTRO, 
-    STATE_MENU, 
-    STATE_PLAYING, 
-    STATE_SKIDDING, 
-    STATE_GAME_OVER 
-} GameState;
-
+// --- ENUMS ---
+typedef enum { PLAYING, SKIDDING, GAME_OVER } GameState;
 typedef enum { ENEMY_NORMAL, ENEMY_FUEL } EnemyType;
 
+// --- CONSTANTS ---
 extern const int SCREEN_WIDTH;
 extern const int SCREEN_HEIGHT;
 extern const float LANE_CENTERS[3];
 
+// --- DATA STRUCTURES ---
 typedef struct {
     Rectangle rect;
     float speed;
@@ -51,6 +46,7 @@ typedef struct {
     float fuel;
 } GameContext;
 
+// --- LOGIC FUNCTIONS ---
 void InitGame(GameContext *game);
 void UpdateGame(GameContext *game, float dt);
 

@@ -3,3 +3,7 @@
 35	268	8070140060529331	CMakeFiles/game.dir/ui.c.obj	dbecdadbbde05b0f
 20	303	8070140060399675	CMakeFiles/game.dir/game.c.obj	24fa3d57716545fa
 304	570	8070140063222708	game.exe	77c71bf53ddebd1b
+3	327	8070155884153446	CMakeFiles/game.dir/main.c.obj	a3f4114c87eded12
+21	422	8070155884342973	CMakeFiles/game.dir/ui.c.obj	dbecdadbbde05b0f
+12	452	8070155884263196	CMakeFiles/game.dir/game.c.obj	24fa3d57716545fa
+452	804	8070155888646673	game.exe	77c71bf53ddebd1b

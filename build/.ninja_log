@@ -1,0 +1,6 @@
+# ninja log v7
+9	377	8070105929637575	CMakeFiles/game.dir/main.c.obj	127d65c3fd431f6e
+46	390	8070105930036516	CMakeFiles/game.dir/physics.c.obj	3d48528b05ec909d
+57	426	8070105930345690	CMakeFiles/game.dir/renderer.c.obj	c7e2314193620dc6
+21	539	8070105929896880	CMakeFiles/game.dir/entities.c.obj	aa8b86c9d0482845
+540	972	8070105934943391	game.exe	7ebb2163f5179c3d

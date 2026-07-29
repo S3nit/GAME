@@ -1,18 +1,13 @@
 #include "raylib.h"
-#include <stdlib.h>
-#include <stdbool.h>
+#include "config.h"
+#include "entities.h"
+#include "renderer.h"
 
-#define MAX_ENEMIES 6
-
-// --- ENUMS & CONSTANTS ---
-typedef enum { PLAYING, SKIDDING, GAME_OVER } GameState;
-typedef enum { ENEMY_NORMAL, ENEMY_FUEL } EnemyType;
-
+// Define global constants from config.h
 const int SCREEN_WIDTH = 400;
 const int SCREEN_HEIGHT = 600;
 const float LANE_CENTERS[3] = { 100.0f, 200.0f, 300.0f }; 
 
-// --- COLOR PALETTE ---
 const Color COLOR_ASPHALT  = (Color){ 43, 45, 48, 255 };
 const Color COLOR_GRASS    = (Color){ 67, 143, 75, 255 };
 const Color COLOR_CURB     = (Color){ 200, 200, 200, 255 };
@@ -21,29 +16,8 @@ const Color COLOR_ENEMY    = (Color){ 50, 130, 220, 255 };
 const Color COLOR_FUEL_CAR = (Color){ 240, 100, 240, 255 };
 const Color COLOR_UI_PANEL = (Color){ 20, 20, 25, 200 };
 
-typedef struct {
-    Rectangle rect;
-    float speed;
-    Color color;
-    bool active;
-    EnemyType type;
-} Enemy;
-
-typedef struct {
-    Rectangle rect;
-    float velocityX;     // Horizontal momentum
-    Color color;
-    float skidTimer;     
-    int skidDirection;   
-} Player;
-
-// Helper function for friction and centering
-float SmoothLerp(float start, float end, float amount) {
-    return start + amount * (end - start);
-}
-
 int main(void) {
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Road Fighter - Physics Update");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Road Fighter - Modular Architecture");
     SetTargetFPS(60);
 
     Player player = { 
@@ -55,150 +29,26 @@ int main(void) {
     GameState currentState = PLAYING;
     
     float roadOffset = 0.0f;
-    float gameSpeed = 200.0f;    // Forward Velocity
-    float floatScore = 0.0f;     // Accumulates smoothly over time
+    float gameSpeed = 200.0f;    
+    float floatScore = 0.0f;     
     float fuel = 100.0f;
 
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
+        if (dt > 0.05f) dt = 0.05f;
 
-        // --- UPDATE LOGIC ---
         if (currentState == PLAYING || currentState == SKIDDING) {
-            
-            // Road scrolling visual
             roadOffset += gameSpeed * dt;
             if (roadOffset >= 40.0f) roadOffset = 0.0f;
             
-            // Check Fuel Death
             if (fuel <= 0) {
                 fuel = 0;
                 currentState = GAME_OVER;
             }
 
-            // 2. State: PLAYING (Physics-Based Controls)
-            if (currentState == PLAYING) {
-                bool isAccelerating = IsKeyDown(KEY_UP);
-                bool isBraking = IsKeyDown(KEY_DOWN);
-
-                // --- FORWARD ACCELERATION & DRAG ---
-                if (isAccelerating) {
-                    gameSpeed += 350.0f * dt;  // Apply engine power
-                } else if (isBraking) {
-                    gameSpeed -= 600.0f * dt;  // Apply brakes
-                } else {
-                    // Coasting: Engine braking & air resistance naturally slows you to idle
-                    if (gameSpeed > 200.0f) gameSpeed -= 150.0f * dt;
-                    else if (gameSpeed < 200.0f) gameSpeed += 100.0f * dt; // Auto-transmission idle creep
-                }
-
-                // Clamp top speed and minimum speed
-                if (gameSpeed > 650.0f) gameSpeed = 650.0f;
-                if (gameSpeed < 50.0f) gameSpeed = 50.0f;
-
-                // --- HORIZONTAL MOMENTUM & STEERING ---
-                if (IsKeyDown(KEY_LEFT)) {
-                    player.velocityX -= 1200.0f * dt; // Build left momentum
-                } else if (IsKeyDown(KEY_RIGHT)) {
-                    player.velocityX += 1200.0f * dt; // Build right momentum
-                } else {
-                    // Tire friction automatically straightens the car out
-                    player.velocityX = SmoothLerp(player.velocityX, 0.0f, 8.0f * dt);
-                }
-
-                // Clamp maximum turning speed
-                if (player.velocityX > 350.0f) player.velocityX = 350.0f;
-                if (player.velocityX < -350.0f) player.velocityX = -350.0f;
-
-                // Apply horizontal movement
-                player.rect.x += player.velocityX * dt;
-
-                // Wall collisions (Kills lateral momentum instantly)
-                if (player.rect.x <= 50) {
-                    player.rect.x = 50;
-                    player.velocityX = 0.0f;
-                } else if (player.rect.x >= SCREEN_WIDTH - 50 - player.rect.width) {
-                    player.rect.x = SCREEN_WIDTH - 50 - player.rect.width;
-                    player.velocityX = 0.0f;
-                }
-
-                // --- PHYSICS-BASED FUEL CONSUMPTION ---
-                float drainRate = 1.0f; // Base engine idle drain
-                
-                if (isAccelerating) drainRate += 2.5f; // Injecting fuel to accelerate
-                
-                // Aerodynamic Drag Penalty: Cost scales quadratically (v^2)
-                // Driving at 600 speed burns dramatically more fuel than driving at 300
-                drainRate += (gameSpeed * gameSpeed) * 0.000015f; 
-                
-                fuel -= drainRate * dt;
-
-                // Score increases faster the faster you go
-                floatScore += (gameSpeed / 100.0f) * 30.0f * dt;
-            }
+            UpdatePlayer(&player, &gameSpeed, &fuel, &floatScore, &currentState, dt);
+            UpdateEnemies(enemies, &player, gameSpeed, &fuel, &floatScore, &currentState, dt);
             
-            // 3. State: SKIDDING (Loss of Control)
-            if (currentState == SKIDDING) {
-                // Skidding rapidly kills forward momentum
-                gameSpeed = SmoothLerp(gameSpeed, 100.0f, 3.0f * dt);
-                fuel -= 1.0f * dt; // Engine is still running
-                
-                player.skidTimer -= dt;
-                
-                // Uncontrollable lateral slide
-                player.velocityX = player.skidDirection * 300.0f;
-                player.rect.x += player.velocityX * dt;
-                
-                // Counter-steer to recover grip
-                if ((player.skidDirection == -1 && IsKeyPressed(KEY_RIGHT)) || 
-                    (player.skidDirection == 1 && IsKeyPressed(KEY_LEFT))) {
-                    currentState = PLAYING; 
-                    player.velocityX = 0.0f; // Regain tire grip
-                }
-
-                if (player.skidTimer <= 0.0f) currentState = PLAYING; 
-
-                // Hitting the grass while skidding totals the car
-                if (player.rect.x <= 50 || player.rect.x >= SCREEN_WIDTH - 50 - player.rect.width) {
-                    currentState = GAME_OVER;
-                }
-            }
-
-            // 4. Enemy Spawning & Collision
-            for (int i = 0; i < MAX_ENEMIES; i++) {
-                if (!enemies[i].active) {
-                    if (GetRandomValue(0, 100) < 2) { 
-                        enemies[i].active = true;
-                        int spawnLane = GetRandomValue(0, 2);
-                        enemies[i].rect = (Rectangle){ LANE_CENTERS[spawnLane] - 15.0f, -60.0f, 30.0f, 50.0f };
-                        enemies[i].speed = (float)GetRandomValue(100, 180);
-                        
-                        // 20% chance for fuel car
-                        if (GetRandomValue(0, 10) > 8) {
-                            enemies[i].type = ENEMY_FUEL;
-                            enemies[i].color = COLOR_FUEL_CAR;
-                        } else {
-                            enemies[i].type = ENEMY_NORMAL;
-                            enemies[i].color = COLOR_ENEMY;
-                        }
-                    }
-                } else {
-                    enemies[i].rect.y += (gameSpeed - enemies[i].speed) * dt;
-                    if (enemies[i].rect.y > SCREEN_HEIGHT) enemies[i].active = false;
-
-                    if (currentState == PLAYING && CheckCollisionRecs(player.rect, enemies[i].rect)) {
-                        if (enemies[i].type == ENEMY_FUEL) {
-                            fuel += 35.0f; // Increased fuel reward to balance aerodynamic drag
-                            if (fuel > 100.0f) fuel = 100.0f;
-                            enemies[i].active = false;
-                            floatScore += 500.0f;
-                        } else {
-                            currentState = SKIDDING;
-                            player.skidTimer = 0.9f; 
-                            player.skidDirection = (player.rect.x < enemies[i].rect.x) ? -1 : 1;
-                        }
-                    }
-                }
-            }
         } else if (currentState == GAME_OVER) {
             if (IsKeyPressed(KEY_ENTER)) {
                 currentState = PLAYING;
@@ -211,69 +61,7 @@ int main(void) {
             }
         }
 
-        // --- DRAWING LOGIC ---
-        BeginDrawing();
-        ClearBackground(COLOR_ASPHALT);
-
-        DrawRectangle(0, 0, 50, SCREEN_HEIGHT, COLOR_GRASS);
-        DrawRectangle(SCREEN_WIDTH - 50, 0, 50, SCREEN_HEIGHT, COLOR_GRASS);
-        DrawRectangle(45, 0, 5, SCREEN_HEIGHT, COLOR_CURB);
-        DrawRectangle(SCREEN_WIDTH - 50, 0, 5, SCREEN_HEIGHT, COLOR_CURB);
-
-        for (int i = -1; i < SCREEN_HEIGHT / 40 + 2; i++) {
-            DrawRectangle(148, i * 40 + roadOffset, 4, 20, Fade(WHITE, 0.4f));
-            DrawRectangle(248, i * 40 + roadOffset, 4, 20, Fade(WHITE, 0.4f));
-        }
-
-        for (int i = 0; i < MAX_ENEMIES; i++) {
-            if (enemies[i].active) {
-                DrawRectangleRounded((Rectangle){enemies[i].rect.x + 3, enemies[i].rect.y + 3, 30, 50}, 0.2f, 4, Fade(BLACK, 0.3f));
-                DrawRectangleRounded(enemies[i].rect, 0.2f, 4, enemies[i].color);
-            }
-        }
-        
-        DrawRectangleRounded((Rectangle){player.rect.x + 3, player.rect.y + 3, 30, 50}, 0.2f, 4, Fade(BLACK, 0.4f));
-        if (currentState == SKIDDING && (int)(GetTime() * 12) % 2 == 0) {
-            DrawRectangleRounded(player.rect, 0.2f, 4, WHITE);
-        } else {
-            DrawRectangleRounded(player.rect, 0.2f, 4, player.color);
-        }
-
-        // --- UI RENDERING ---
-        DrawRectangle(0, 0, SCREEN_WIDTH, 65, COLOR_UI_PANEL);
-        DrawLine(0, 65, SCREEN_WIDTH, 65, Fade(WHITE, 0.1f));
-
-        // Score & Speedometer
-        DrawText("SCORE", 20, 15, 10, LIGHTGRAY);
-        DrawText(TextFormat("%06i", (int)floatScore), 20, 27, 20, WHITE);
-        
-        // Convert game speed to a realistic looking KM/H value
-        DrawText(TextFormat("SPEED: %03i KM/H", (int)(gameSpeed / 2.0f)), 20, 50, 10, ORANGE);
-
-        // Fuel Bar Gauge
-        float maxFuelWidth = 140.0f;
-        float currentFuelWidth = (fuel / 100.0f) * maxFuelWidth;
-        Color fuelColor = fuel > 50.0f ? LIME : (fuel > 20.0f ? ORANGE : RED);
-        
-        DrawText("FUEL", SCREEN_WIDTH - 175, 15, 10, LIGHTGRAY);
-        DrawRectangleRounded((Rectangle){ SCREEN_WIDTH - 175, 30, maxFuelWidth, 18 }, 0.5f, 4, Fade(DARKGRAY, 0.5f));
-        DrawRectangleRounded((Rectangle){ SCREEN_WIDTH - 175, 30, currentFuelWidth, 18 }, 0.5f, 4, fuelColor);
-        DrawRectangleRoundedLines((Rectangle){ SCREEN_WIDTH - 175, 30, maxFuelWidth, 18 }, 0.5f, 4, Fade(WHITE, 0.2f));
-
-        if (currentState == GAME_OVER) {
-            DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(BLACK, 0.7f));
-            
-            int panelWidth = 280;
-            int panelHeight = 120;
-            Rectangle goPanel = { (SCREEN_WIDTH - panelWidth) / 2.0f, (SCREEN_HEIGHT - panelHeight) / 2.0f, panelWidth, panelHeight };
-            DrawRectangleRounded(goPanel, 0.1f, 10, COLOR_UI_PANEL);
-            DrawRectangleRoundedLines(goPanel, 0.1f, 10, Fade(WHITE, 0.2f));
-
-            DrawText("VEHICLE DISABLED", SCREEN_WIDTH / 2 - MeasureText("VEHICLE DISABLED", 20) / 2, SCREEN_HEIGHT / 2 - 30, 20, RED);
-            DrawText("PRESS [ENTER] TO RESTART", SCREEN_WIDTH / 2 - MeasureText("PRESS [ENTER] TO RESTART", 14) / 2, SCREEN_HEIGHT / 2 + 15, 14, LIGHTGRAY);
-        }
-
-        EndDrawing();
+        DrawGameScene(player, enemies, roadOffset, gameSpeed, fuel, floatScore, currentState);
     }
 
     CloseWindow();

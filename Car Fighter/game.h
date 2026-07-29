@@ -5,10 +5,24 @@
 #include <stdbool.h>
 
 #define MAX_ENEMIES 5
+#define MAX_NAME_LENGTH 11 
 
 // --- ENUMS ---
-typedef enum { PLAYING, SKIDDING, GAME_OVER } GameState;
-typedef enum { ENEMY_NORMAL, ENEMY_FUEL } EnemyType;
+typedef enum { 
+    MENU_MAIN, 
+    MENU_NAME_INPUT, 
+    MENU_DIFFICULTY, 
+    MENU_HIGHSCORES, 
+    PLAYING, 
+    SKIDDING, 
+    GAME_OVER 
+} GameState;
+
+typedef enum { 
+    ENEMY_NORMAL, 
+    ENEMY_FUEL, 
+    ENEMY_LORRY 
+} EnemyType;
 
 // --- CONSTANTS ---
 extern const int SCREEN_WIDTH;
@@ -44,6 +58,10 @@ typedef struct {
     float gameSpeed;
     float floatScore;
     float fuel;
+    
+    int difficultyLevel;
+    char playerName[MAX_NAME_LENGTH];
+    int nameLetterCount;
 } GameContext;
 
 // --- LOGIC FUNCTIONS ---

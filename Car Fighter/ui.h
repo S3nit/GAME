@@ -3,7 +3,8 @@
 
 #include "game.h"
 
-// Renders the entire game frame (Road, Cars, HUD, Game Over panel)
-void RenderGame(const GameContext *game);
+void UpdateMenuLogic(GameContext *game);
+void DrawMenuScreen(GameContext *game);
+void DrawGameplay(GameContext *game);
 
 #endif // UI_H

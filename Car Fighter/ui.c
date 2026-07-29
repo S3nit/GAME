@@ -1,77 +1,153 @@
 #include "ui.h"
+#include "raylib.h"
 
-// --- UI COLOR PALETTE ---
-static const Color COLOR_ASPHALT  = (Color){ 43, 45, 48, 255 };
-static const Color COLOR_GRASS    = (Color){ 67, 143, 75, 255 };
-static const Color COLOR_CURB     = (Color){ 200, 200, 200, 255 };
-static const Color COLOR_UI_PANEL = (Color){ 20, 20, 25, 200 };
+static void DrawTextCentered(const char *text, int y, int fontSize, Color color) {
+    int width = MeasureText(text, fontSize);
+    DrawText(text, SCREEN_WIDTH / 2 - width / 2, y, fontSize, color);
+}
 
-void RenderGame(const GameContext *game) {
-    BeginDrawing();
-    ClearBackground(COLOR_ASPHALT);
+void UpdateMenuLogic(GameContext *game) {
+    if (game->currentState == MENU_MAIN) {
+        if (IsKeyPressed(KEY_ENTER)) game->currentState = MENU_NAME_INPUT;
+        if (IsKeyPressed(KEY_H)) game->currentState = MENU_HIGHSCORES;
+    } 
+    else if (game->currentState == MENU_NAME_INPUT) {
+        int key = GetCharPressed();
+        while (key > 0) {
+            if ((key >= 32) && (key <= 125) && (game->nameLetterCount < MAX_NAME_LENGTH - 1)) {
+                game->playerName[game->nameLetterCount] = (char)key;
+                game->playerName[game->nameLetterCount + 1] = '\0';
+                game->nameLetterCount++;
+            }
+            key = GetCharPressed();
+        }
 
-    // 1. Draw Environment & Road
-    DrawRectangle(0, 0, 50, SCREEN_HEIGHT, COLOR_GRASS);
-    DrawRectangle(SCREEN_WIDTH - 50, 0, 50, SCREEN_HEIGHT, COLOR_GRASS);
-    DrawRectangle(45, 0, 5, SCREEN_HEIGHT, COLOR_CURB);
-    DrawRectangle(SCREEN_WIDTH - 50, 0, 5, SCREEN_HEIGHT, COLOR_CURB);
+        if (IsKeyPressed(KEY_BACKSPACE)) {
+            if (game->nameLetterCount > 0) {
+                game->nameLetterCount--;
+                game->playerName[game->nameLetterCount] = '\0';
+            }
+        }
 
-    for (int i = -1; i < SCREEN_HEIGHT / 40 + 2; i++) {
-        DrawRectangle(148, i * 40 + game->roadOffset, 4, 20, Fade(WHITE, 0.4f));
-        DrawRectangle(248, i * 40 + game->roadOffset, 4, 20, Fade(WHITE, 0.4f));
+        if (IsKeyPressed(KEY_ENTER) && game->nameLetterCount > 0) {
+            game->currentState = MENU_DIFFICULTY;
+        }
+    }
+    else if (game->currentState == MENU_DIFFICULTY) {
+        if (IsKeyPressed(KEY_ONE)) { 
+            game->difficultyLevel = 1; 
+            InitGame(game); 
+        }
+        if (IsKeyPressed(KEY_TWO)) { 
+            game->difficultyLevel = 2; 
+            InitGame(game); 
+        }
+        if (IsKeyPressed(KEY_THREE)) { 
+            game->difficultyLevel = 3; 
+            InitGame(game); 
+        }
+    }
+    else if (game->currentState == MENU_HIGHSCORES) {
+        if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_ENTER)) {
+            game->currentState = MENU_MAIN;
+        }
+    }
+}
+
+void DrawMenuScreen(GameContext *game) {
+    ClearBackground(DARKGRAY);
+
+    if (game->currentState == MENU_MAIN) {
+        DrawTextCentered("ROAD FIGHTER", 150, 40, RED);
+        DrawTextCentered("Press ENTER to Start", 300, 20, LIGHTGRAY);
+        DrawTextCentered("Press 'H' for Highscores", 350, 20, LIGHTGRAY);
+    } 
+    else if (game->currentState == MENU_NAME_INPUT) {
+        DrawTextCentered("ENTER PLAYER NAME:", 200, 20, LIGHTGRAY);
+        
+        DrawRectangle(SCREEN_WIDTH / 2 - 100, 250, 200, 40, BLACK);
+        DrawTextCentered(game->playerName, 260, 20, WHITE);
+        
+        if ((int)(GetTime() * 2.0f) % 2 == 0 && game->nameLetterCount < MAX_NAME_LENGTH - 1) {
+            int textWidth = MeasureText(game->playerName, 20);
+            DrawText("_", SCREEN_WIDTH / 2 + textWidth / 2 + 5, 260, 20, WHITE);
+        }
+        
+        DrawTextCentered("Press ENTER to continue", 350, 15, GRAY);
+    }
+    else if (game->currentState == MENU_DIFFICULTY) {
+        DrawTextCentered("SELECT DIFFICULTY", 150, 30, WHITE);
+        DrawTextCentered("[1] NORMAL (Standard)", 250, 20, GREEN);
+        DrawTextCentered("[2] HARD (More Traffic)", 300, 20, YELLOW);
+        DrawTextCentered("[3] EXPERT (Heavy Lorries)", 350, 20, RED);
+    }
+    else if (game->currentState == MENU_HIGHSCORES) {
+        DrawTextCentered("HIGHSCORES", 100, 30, GOLD);
+        DrawTextCentered("1. GATO - 15000", 200, 20, WHITE);
+        DrawTextCentered("2. ALEX - 12000", 240, 20, LIGHTGRAY);
+        DrawTextCentered("3. RYAN - 8500", 280, 20, LIGHTGRAY);
+        DrawTextCentered("Press ESC or ENTER to return", 500, 15, GRAY);
+    }
+}
+
+void DrawGameplay(GameContext *game) {
+    // 1. Draw the Base Asphalt
+    ClearBackground((Color){ 40, 40, 40, 255 });
+
+    // 2. Draw Grass Shoulders
+    DrawRectangle(0, 0, 50, SCREEN_HEIGHT, DARKGREEN);
+    DrawRectangle(350, 0, 50, SCREEN_HEIGHT, DARKGREEN);
+
+    // 3. Draw Solid White Boundary Lines
+    DrawRectangle(50, 0, 8, SCREEN_HEIGHT, RAYWHITE);
+    DrawRectangle(342, 0, 8, SCREEN_HEIGHT, RAYWHITE);
+
+    // 4. Draw Scrolling Dashed Lane Dividers
+    for (int y = -60; y < SCREEN_HEIGHT; y += 60) {
+        DrawRectangle(146, y + (int)game->roadOffset, 8, 30, RAYWHITE);
+        DrawRectangle(246, y + (int)game->roadOffset, 8, 30, RAYWHITE);
     }
 
-    // 2. Draw Enemy Cars
+    // 5. Draw Player
+    DrawRectangleRec(game->player.rect, game->player.color);
+    // Player details (Windshield & Roof)
+    DrawRectangle(game->player.rect.x + 10, game->player.rect.y + 20, game->player.rect.width - 20, 25, BLACK);
+    DrawRectangle(game->player.rect.x + 15, game->player.rect.y + 45, game->player.rect.width - 30, 35, DARKGRAY);
+
+    // 6. Draw Enemies/Items
     for (int i = 0; i < MAX_ENEMIES; i++) {
         if (game->enemies[i].active) {
-            DrawRectangleRounded((Rectangle){game->enemies[i].rect.x + 3, game->enemies[i].rect.y + 3, 30, 50}, 0.2f, 4, Fade(BLACK, 0.3f));
-            DrawRectangleRounded(game->enemies[i].rect, 0.2f, 4, game->enemies[i].color);
-
-            if (game->enemies[i].isShifting && (int)(GetTime() * 10) % 2 == 0) {
-                DrawRectangle(game->enemies[i].rect.x + 5, game->enemies[i].rect.y + 5, 4, 4, YELLOW);
-                DrawRectangle(game->enemies[i].rect.x + game->enemies[i].rect.width - 9, game->enemies[i].rect.y + 5, 4, 4, YELLOW);
+            DrawRectangleRec(game->enemies[i].rect, game->enemies[i].color);
+            
+            if (game->enemies[i].type == ENEMY_LORRY) {
+                // Trailer box design
+                DrawRectangle(game->enemies[i].rect.x + 5, game->enemies[i].rect.y + 5, 
+                              game->enemies[i].rect.width - 10, game->enemies[i].rect.height - 30, LIGHTGRAY);
+            } 
+            else if (game->enemies[i].type == ENEMY_NORMAL) {
+                // Enemy car windshield
+                DrawRectangle(game->enemies[i].rect.x + 10, game->enemies[i].rect.y + 20, 
+                              game->enemies[i].rect.width - 20, 25, BLACK);
+            }
+            else if (game->enemies[i].type == ENEMY_FUEL) {
+                // Fuel can spout
+                DrawRectangle(game->enemies[i].rect.x + 10, game->enemies[i].rect.y - 6, 10, 6, LIGHTGRAY);
             }
         }
     }
 
-    // 3. Draw Player Car
-    DrawRectangleRounded((Rectangle){game->player.rect.x + 3, game->player.rect.y + 3, 30, 50}, 0.2f, 4, Fade(BLACK, 0.4f));
-    if (game->currentState == SKIDDING && (int)(GetTime() * 12) % 2 == 0) {
-        DrawRectangleRounded(game->player.rect, 0.2f, 4, WHITE);
-    } else {
-        DrawRectangleRounded(game->player.rect, 0.2f, 4, game->player.color);
-    }
+    // 7. UI Overlay
+    DrawRectangle(0, 0, SCREEN_WIDTH, 40, BLACK);
+    DrawText(TextFormat("SCORE: %06i", (int)game->floatScore), 10, 10, 20, WHITE);
+    
+    DrawText("FUEL:", 220, 10, 20, WHITE);
+    Color fuelColor = (game->fuel > 30.0f) ? GREEN : RED;
+    DrawRectangle(280, 12, (int)(game->fuel), 15, fuelColor);
+    DrawRectangleLines(280, 12, 100, 15, WHITE);
 
-    // 4. Draw HUD / Dashboards
-    DrawRectangle(0, 0, SCREEN_WIDTH, 65, COLOR_UI_PANEL);
-    DrawLine(0, 65, SCREEN_WIDTH, 65, Fade(WHITE, 0.1f));
-
-    DrawText("SCORE", 20, 15, 10, LIGHTGRAY);
-    DrawText(TextFormat("%06i", (int)game->floatScore), 20, 27, 20, WHITE);
-    DrawText(TextFormat("SPEED: %03i KM/H", (int)(game->gameSpeed / 2.0f)), 20, 50, 10, ORANGE);
-
-    float maxFuelWidth = 140.0f;
-    float currentFuelWidth = (game->fuel / 100.0f) * maxFuelWidth;
-    Color fuelColor = game->fuel > 50.0f ? LIME : (game->fuel > 20.0f ? ORANGE : RED);
-
-    DrawText("FUEL", SCREEN_WIDTH - 175, 15, 10, LIGHTGRAY);
-    DrawRectangleRounded((Rectangle){ SCREEN_WIDTH - 175, 30, maxFuelWidth, 18 }, 0.5f, 4, Fade(DARKGRAY, 0.5f));
-    DrawRectangleRounded((Rectangle){ SCREEN_WIDTH - 175, 30, currentFuelWidth, 18 }, 0.5f, 4, fuelColor);
-    DrawRectangleRoundedLines((Rectangle){ SCREEN_WIDTH - 175, 30, maxFuelWidth, 18 }, 0.5f, 4, Fade(WHITE, 0.2f));
-
-    // 5. Game Over Overlay
     if (game->currentState == GAME_OVER) {
-        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(BLACK, 0.7f));
-
-        int panelWidth = 280;
-        int panelHeight = 120;
-        Rectangle goPanel = { (SCREEN_WIDTH - panelWidth) / 2.0f, (SCREEN_HEIGHT - panelHeight) / 2.0f, panelWidth, panelHeight };
-        DrawRectangleRounded(goPanel, 0.1f, 10, COLOR_UI_PANEL);
-        DrawRectangleRoundedLines(goPanel, 0.1f, 10, Fade(WHITE, 0.2f));
-
-        DrawText("VEHICLE DISABLED", SCREEN_WIDTH / 2 - MeasureText("VEHICLE DISABLED", 20) / 2, SCREEN_HEIGHT / 2 - 30, 20, RED);
-        DrawText("PRESS [ENTER] TO RESTART", SCREEN_WIDTH / 2 - MeasureText("PRESS [ENTER] TO RESTART", 14) / 2, SCREEN_HEIGHT / 2 + 15, 14, LIGHTGRAY);
+        DrawRectangle(0, SCREEN_HEIGHT / 2 - 40, SCREEN_WIDTH, 80, Fade(BLACK, 0.8f));
+        DrawTextCentered("GAME OVER", SCREEN_HEIGHT / 2 - 20, 40, RED);
+        DrawTextCentered("Press ENTER to continue", SCREEN_HEIGHT / 2 + 20, 15, LIGHTGRAY);
     }
-
-    EndDrawing();
 }

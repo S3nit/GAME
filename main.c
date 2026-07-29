@@ -1,6 +1,6 @@
 #include "raylib.h"
 #include <stdlib.h>
-
+#include <stdbool.h>
 #define MAX_ENEMIES 6
 
 // --- ENUMS for Better Architecture ---

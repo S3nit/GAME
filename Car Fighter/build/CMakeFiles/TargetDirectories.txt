@@ -1,3 +1,0 @@
-F:/Programming/C programming/CO1810 Project/GAME/Car Fighter0/build/CMakeFiles/game.dir
-F:/Programming/C programming/CO1810 Project/GAME/Car Fighter0/build/CMakeFiles/edit_cache.dir
-F:/Programming/C programming/CO1810 Project/GAME/Car Fighter0/build/CMakeFiles/rebuild_cache.dir

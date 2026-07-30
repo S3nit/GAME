@@ -1,3 +1,0 @@
-C:/Users/Gato/Desktop/Game/GAME/Car Fighter/build/CMakeFiles/game.dir
-C:/Users/Gato/Desktop/Game/GAME/Car Fighter/build/CMakeFiles/edit_cache.dir
-C:/Users/Gato/Desktop/Game/GAME/Car Fighter/build/CMakeFiles/rebuild_cache.dir
